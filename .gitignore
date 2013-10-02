@@ -1,0 +1,7 @@
+/gen/*
+/bin/*
+/target/*
+.codepro/*
+.settings/*
+*~
+
