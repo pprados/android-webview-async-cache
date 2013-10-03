@@ -39,15 +39,14 @@
             android:authorities="fr.prados.webkitcache"
             android:exported="false" 
             android:syncable="true"
-            android:process=":htmlcache"
             />
+            android:process=":htmlcache"
         
         <!-- Service to synchronized the cached pages -->
         <service android:name="fr.prados.sync.SyncHTTPService" 
             android:exported="false"
-            android:process=":htmlcache"
             >
-            android:permission="android.permission.CHANGE_CONFIGURATION"
+            android:process=":htmlcache"
             <intent-filter>
                 <action android:name="android.accounts.AccountAuthenticator" />
             </intent-filter>

@@ -14,12 +14,16 @@ import android.content.SharedPreferences.Editor;
 import android.content.SyncResult;
 import android.database.Cursor;
 import android.net.Uri;
+import android.net.http.SslError;
 import android.os.Build;
 import android.os.Build.VERSION;
 import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Message;
 import android.util.Log;
+import android.webkit.HttpAuthHandler;
+import android.webkit.SslErrorHandler;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -111,7 +115,6 @@ public class SyncHTTPService extends AbstractSyncService
 			SyncResult result)
 	{
 		if (D) Log.d(TAG,"Start HTTP sync");
-		mOnSync=true; // FIXME		
 		if (mOnSync)
 		{
 			if (D) Log.d(TAG,"*** sync refused.");
@@ -137,6 +140,11 @@ public class SyncHTTPService extends AbstractSyncService
 
     	// Because the current thread is not the UI thread, post a message in the UI thread
     	// to load the first URL.
+    	if (urls.size()==0)
+    	{
+    		mOnSync=false;
+    		return;
+    	}
 		mHandler.post(new Runnable()
 		{
 			// The current index of Url to manage.
@@ -156,60 +164,91 @@ public class SyncHTTPService extends AbstractSyncService
 					initWebViewForHTML5Cache(SyncHTTPService.this,mWebView);
 					// Update only if is necessary
 					mWebView.getSettings().setCacheMode(WebSettings.LOAD_DEFAULT);
+					mWebView.setWebViewClient(new WebViewClient()
+					{
+
+						@Override
+						@Deprecated
+						public void onTooManyRedirects(WebView view, Message cancelMsg, Message continueMsg)
+						{
+							nextUrl();
+						}
+						@Override
+						public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error)
+						{
+							nextUrl();
+						}
+						@Override
+						public void onReceivedHttpAuthRequest(WebView view, HttpAuthHandler handler, String host,
+								String realm)
+						{
+							nextUrl();
+						}
+						@Override
+						public void onReceivedLoginRequest(WebView view, String realm, String account, String args)
+						{
+							nextUrl();
+						}
+						@Override
+						public void onReceivedError(WebView view, int errorCode, String description, String failingUrl)
+						{
+							nextUrl();
+						}
+						@Override
+						public void onPageFinished(WebView view, String url)
+						{
+							nextUrl();
+						}
+						// load the next url
+						@TargetApi(Build.VERSION_CODES.HONEYCOMB)
+						private void nextUrl()
+						{
+							// Notify this page is loaded
+							if (I) Log.i(TAG,mUrl+" is updated");
+							getContentResolver().notifyChange(Uri.parse(mUrl), null);
+							// Is it the last URL ?
+							if (mState>=urls.size())
+							{
+								if (D) Log.d(TAG,"Finish the last URL. onPause() the WebKit.");
+								// Invoke onPause() of the current URL (stop flash, video, etc.)
+								if (Build.VERSION.SDK_INT>=Build.VERSION_CODES.HONEYCOMB)
+									mWebView.onPause();
+								else
+								{
+									try
+									{
+										Class.forName("android.webkit.WebView").getMethod("onPause", (Class[]) null).invoke(mWebView, (Object[]) null);
+									}
+									catch (Exception e)
+									{
+										// IGNORE
+										Log.e(TAG,"pause webview in sync.",e);
+									}
+								}
+								// All is done
+								mWebView=null; // Garbage the WebView
+								// It's time to notify the onPerformSync method.
+								synchronized (mLock)
+								{
+									if (D) Log.d(TAG,"*** sync notify");
+									mLock.notify(); // Unlock the onPerformSync
+								}
+							}
+							else
+							{
+								// Else, continue the Finite state machine with the next URL.
+								mUrl=urls.get(mState++);
+								if (D) Log.d(TAG,"Preload "+mUrl);
+								mWebView.loadUrl(mUrl);
+							}
+
+						}
+					});
 				}
 				// Take the next URL
 				mUrl=urls.get(mState++);
 				if (D) Log.d(TAG,"Preload "+mUrl);
 				// Wait the onPageFinished
-				mWebView.setWebViewClient(new WebViewClient()
-				{
-
-					@TargetApi(Build.VERSION_CODES.HONEYCOMB)
-					@Override
-					public void onPageFinished(WebView view, String url)
-					{
-						super.onPageFinished(view, url);
-						// Notify this page is loaded
-						if (I) Log.i(TAG,mUrl+" is updated");
-						getContentResolver().notifyChange(Uri.parse(mUrl), null);
-						// Is it the last URL ?
-						if (mState>=urls.size())
-						{
-							if (D) Log.d(TAG,"Finish the last URL. onPause() the WebKit.");
-							// Invoke onPause() of the current URL (stop flash, video, etc.)
-							if (Build.VERSION.SDK_INT>=Build.VERSION_CODES.HONEYCOMB)
-								view.onPause();
-							else
-							{
-								try
-								{
-									Class.forName("android.webkit.WebView").getMethod("onPause", (Class[]) null).invoke(view, (Object[]) null);
-								}
-								catch (Exception e)
-								{
-									// IGNORE
-									Log.e(TAG,"pause webview in sync.",e);
-								}
-							}
-							// All is done
-							mWebView=null; // Garbage the WebView
-							// It's time to notify the onPerformSync method.
-							synchronized (mLock)
-							{
-								if (D) Log.d(TAG,"*** sync notify");
-								mLock.notify(); // Unlock the onPerformSync
-							}
-						}
-						else
-						{
-							// Else, continue the Finite state machine with the next URL.
-							mUrl=urls.get(mState++);
-							if (D) Log.d(TAG,"Preload "+mUrl);
-							mWebView.loadUrl(mUrl);
-						}
-					}
-
-				});
 				// and load the Url in the WebView
 				mWebView.loadUrl(mUrl);
 			}

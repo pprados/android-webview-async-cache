@@ -3,7 +3,7 @@
         xmlns:android="http://schemas.android.com/apk/res/android"
         android:contentAuthority="fr.prados.webkitcache"
         android:accountType="fr.prados.sync"
-        android:userVisible="true"
+        android:userVisible="false"
         android:supportsUploading="true"
         android:allowParallelSyncs="false"
-        android:isAlwaysSyncable="false"/>
+        android:isAlwaysSyncable="true"/>
