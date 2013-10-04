@@ -9,6 +9,12 @@ import android.content.Context;
 import android.os.Bundle;
 import android.util.Log;
 
+/**
+ * Tool to help the initialization.
+ * 
+ * @author Philippe PRADOS
+ *
+ */
 public class SyncHTTPTools
 {
 	public static final String TAG="UseWebKit";
@@ -21,7 +27,10 @@ public class SyncHTTPTools
     public static final String ACCOUNT_NAME = "sync";
     
     // Sync frequency
-	public static final long SYNC_FREQUENCY = 60 * 60; // 1 hour (in seconds)
+	public static final long SYNC_FREQUENCY = 
+			BuildConfig.DEBUG 
+			? 30 // each 30 seconds in debug mode.
+			: 60 * 60 * 12L; // else 12 hours (in seconds)
 	
 	private static volatile boolean sInitialized=false;
 	/**

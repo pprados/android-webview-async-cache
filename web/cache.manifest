@@ -1,0 +1,10 @@
+CACHE MANIFEST
+# version 1qsd
+
+CACHE:
+index.html
+page1.html
+page2.html
+
+NETWORK:
+push.html

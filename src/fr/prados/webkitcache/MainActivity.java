@@ -4,6 +4,7 @@ import static fr.prados.webkitcache.SyncHTTPTools.ACCOUNT_NAME;
 import static fr.prados.webkitcache.SyncHTTPTools.ACCOUNT_TYPE;
 import static fr.prados.webkitcache.SyncHTTPTools.CONTENT_AUTHORITY;
 import android.accounts.Account;
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.ContentResolver;
@@ -22,14 +23,16 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-// En première étape, il est possible de récupérer un zip avec tous les fichiers, et les publier via le contentprovider
-
-// http://alex.tapmania.org/2010/11/html5-cache-android-webview.html
+/**
+ * Sample activity with a WebKit with pages loaded from cache.
+ * 
+ * @author Philippe PRADOS
+ */
 public class MainActivity extends Activity
 {
 	public static final String TAG="UseWebKit";
-	public static final String URL_HOME="http://www.mobileevolution.be/apps/FitceCongress/android/gsm/home.php";
-//	public static final String URL_HOME="https://www.google.fr";
+	//public static final String URL_HOME="http://192.168.0.30:8080/index.html";
+	public static final String URL_HOME="http://www.youtube.com/";
 
 	// The webview
 	private WebView mWebView;
@@ -42,19 +45,26 @@ public class MainActivity extends Activity
 	{
 
 
+		/**
+		 * @see android.database.ContentObserver#onChange(boolean)
+		 */
 		@Override
 		public void onChange(boolean selfChange)
 		{
 			super.onChange(selfChange);
-			onURLChange(null);
+			if (Build.VERSION.SDK_INT<Build.VERSION_CODES.JELLY_BEAN)
+				onCacheUpdated(null);
 		}
 
+		/**
+		 * @see android.database.ContentObserver#onChange(boolean, android.net.Uri)
+		 */
 		@TargetApi(Build.VERSION_CODES.JELLY_BEAN)
 		@Override
 		public void onChange(boolean selfChange, Uri uri)
 		{
 			super.onChange(selfChange, uri);
-			onURLChange(uri);
+			onCacheUpdated(uri);
 		}
 		
 	};
@@ -65,16 +75,17 @@ public class MainActivity extends Activity
 	 * 
 	 * @param uri The uri present in the Webkit cache.
 	 */
-	protected void onURLChange(Uri uri)
+	protected void onCacheUpdated(Uri uri)
 	{
-		if (uri==null) uri=mHome;
-		mWebView.loadUrl(uri.toString());
+		Log.d(TAG,"onCacheUpdate("+uri+")");
+		// WebView bug if the background thread update the cache in another process and the cache mod is LOAD_CACHE_ONLY
+		mWebView.getSettings().setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
+		mWebView.reload();
 	}
 	
 	/**
-	 * Called when the activity is first created.
+	 * @see android.app.Activity#onCreate(android.os.Bundle)
 	 */
-	//@SuppressWarnings("deprecation")
 	@Override
 	public void onCreate(Bundle savedInstanceState)
 	{
@@ -87,6 +98,9 @@ public class MainActivity extends Activity
 		mWebView.setWebViewClient(new WebViewClient()
 		{
 
+			/**
+			 * @see android.webkit.WebViewClient#onReceivedError(android.webkit.WebView, int, java.lang.String, java.lang.String)
+			 */
 			@Override
 			public void onReceivedError(WebView view, int errorCode, String description, String failingUrl)
 			{
@@ -96,7 +110,10 @@ public class MainActivity extends Activity
 				{
 					case ERROR_HOST_LOOKUP:
 					case ERROR_CONNECT:
-						ContentResolver.requestSync(new Account(ACCOUNT_NAME, ACCOUNT_TYPE), CONTENT_AUTHORITY, new Bundle());
+						Bundle b = new Bundle();
+						b.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
+						b.putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
+						ContentResolver.requestSync(new Account(ACCOUNT_NAME, ACCOUNT_TYPE), CONTENT_AUTHORITY, b);
 						ConnectivityManager cm=((ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE));
 						NetworkInfo info=cm.getActiveNetworkInfo();
 						final boolean isConnected =	(info!=null) ? info.isConnectedOrConnecting() : false;
@@ -113,11 +130,16 @@ public class MainActivity extends Activity
 		initWebViewForHTML5Cache(this,mWebView);
 
 		// Set to load the cache only, because the background service manage the cache.
+		// I am optimistic !
 		mWebView.getSettings().setCacheMode(WebSettings.LOAD_CACHE_ONLY);
+//		mWebView.getSettings().setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
 		
 		mWebView.loadUrl(URL_HOME);
 	}
 
+	/**
+	 * @see android.app.Activity#onResume()
+	 */
 	@Override
 	protected void onResume()
 	{
@@ -126,6 +148,9 @@ public class MainActivity extends Activity
 		getContentResolver().registerContentObserver(mHome, true,mContentObserver);
 	}
 	
+	/**
+	 * @see android.app.Activity#onPause()
+	 */
 	@Override
 	protected void onPause()
 	{
@@ -139,11 +164,11 @@ public class MainActivity extends Activity
      * @param context The context.
      * @param webView The web view.
      */
+	@SuppressLint("SetJavaScriptEnabled")
 	@SuppressWarnings("deprecation")
 	private static void initWebViewForHTML5Cache(Context context,WebView webView)
     {
 		final WebSettings settings = webView.getSettings();
-		settings.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK);
 		settings.setJavaScriptEnabled(true);
 		settings.setDomStorageEnabled(true);
 		settings.setDatabaseEnabled(true);

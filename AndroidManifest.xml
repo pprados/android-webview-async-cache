@@ -6,7 +6,7 @@
 
     <uses-sdk
         android:minSdkVersion="8"
-        android:targetSdkVersion="17" />
+        android:targetSdkVersion="18" />
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -15,7 +15,6 @@
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
     <uses-permission android:name="android.permission.AUTHENTICATE_ACCOUNTS" />
     <uses-permission android:name="android.permission.GET_ACCOUNTS" />
-    <permission android:name="toto.toto"></permission>
     
     <application
         android:allowBackup="true"
@@ -39,14 +38,15 @@
             android:authorities="fr.prados.webkitcache"
             android:exported="false" 
             android:syncable="true"
-            />
             android:process=":htmlcache"
+            />
         
         <!-- Service to synchronized the cached pages -->
         <service android:name="fr.prados.sync.SyncHTTPService" 
             android:exported="false"
-            >
+            android:enabled="true"
             android:process=":htmlcache"
+            >
             <intent-filter>
                 <action android:name="android.accounts.AccountAuthenticator" />
             </intent-filter>

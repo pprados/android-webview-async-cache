@@ -3,6 +3,12 @@ package fr.prados.webkitcache;
 import fr.prados.sync.SyncHTTPService;
 import android.app.Application;
 
+/**
+ * Bootstrap the application.
+ * 
+ * @author Philippe PRADOS
+ *
+ */
 public class WebKitCacheApplication extends Application
 {
 	/**

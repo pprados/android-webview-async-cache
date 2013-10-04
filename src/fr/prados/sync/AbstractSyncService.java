@@ -8,18 +8,18 @@ import android.annotation.TargetApi;
 import android.app.Service;
 import android.content.AbstractThreadedSyncAdapter;
 import android.content.ContentProviderClient;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SyncResult;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.util.Log;
 
 /**
  * Define a Service that returns an IBinder for the sync adapter class, allowing
- * the sync adapter framework to call onPerformSync().
+ * the sync adapter framework to call onPerformSync() and an authenticator.
+ * 
+ * @author Philippe PRADOS
  */
 public abstract class AbstractSyncService extends Service
 {
@@ -37,12 +37,18 @@ public abstract class AbstractSyncService extends Service
 		{
 			super(context.getApplicationContext());
 		}
+		/**
+		 * {@inheritDoc}
+		 */
 		@Override
 		public Bundle editProperties(AccountAuthenticatorResponse accountAuthenticatorResponse, String s)
 		{
 			throw new UnsupportedOperationException();
 		}
 
+		/**
+		 * {@inheritDoc}
+		 */
 		@Override
 		public Bundle addAccount(AccountAuthenticatorResponse accountAuthenticatorResponse, String s, String s2,
 				String[] strings, Bundle bundle) throws NetworkErrorException
@@ -50,6 +56,9 @@ public abstract class AbstractSyncService extends Service
 			return null;
 		}
 
+		/**
+		 * {@inheritDoc}
+		 */
 		@Override
 		public Bundle confirmCredentials(AccountAuthenticatorResponse accountAuthenticatorResponse, Account account,
 				Bundle bundle) throws NetworkErrorException
@@ -57,6 +66,9 @@ public abstract class AbstractSyncService extends Service
 			return null;
 		}
 
+		/**
+		 * {@inheritDoc}
+		 */
 		@Override
 		public Bundle getAuthToken(AccountAuthenticatorResponse accountAuthenticatorResponse, Account account,
 				String s, Bundle bundle) throws NetworkErrorException
@@ -64,12 +76,18 @@ public abstract class AbstractSyncService extends Service
 			throw new UnsupportedOperationException();
 		}
 
+		/**
+		 * {@inheritDoc}
+		 */
 		@Override
 		public String getAuthTokenLabel(String s)
 		{
 			throw new UnsupportedOperationException();
 		}
 
+		/**
+		 * {@inheritDoc}
+		 */
 		@Override
 		public Bundle updateCredentials(AccountAuthenticatorResponse accountAuthenticatorResponse, Account account,
 				String s, Bundle bundle) throws NetworkErrorException
@@ -77,6 +95,9 @@ public abstract class AbstractSyncService extends Service
 			throw new UnsupportedOperationException();
 		}
 
+		/**
+		 * {@inheritDoc}
+		 */
 		@Override
 		public Bundle hasFeatures(AccountAuthenticatorResponse accountAuthenticatorResponse, Account account,
 				String[] strings) throws NetworkErrorException
@@ -97,8 +118,30 @@ public abstract class AbstractSyncService extends Service
 		}
 
 		/**
-		 * Set up the sync adapter. This form of the constructor maintains
-		 * compatibility with Android 3.0 and later platform versions
+		 * {@inheritDoc}
+		 */
+		// Delegate to outer class
+		@Override
+		public void onSyncCanceled()
+		{
+			super.onSyncCanceled();
+			AbstractSyncService.this.onSyncCanceled();
+		}
+
+		/**
+		 * {@inheritDoc}
+		 */
+		// Delegate to outer class
+		@TargetApi(Build.VERSION_CODES.HONEYCOMB)
+		@Override
+		public void onSyncCanceled(Thread thread)
+		{
+			super.onSyncCanceled(thread);
+			AbstractSyncService.this.onSyncCanceled(thread);
+		}
+
+		/**
+		 * {@inheritDoc}
 		 */
 		@TargetApi(Build.VERSION_CODES.HONEYCOMB)
 		public SyncAdapter(Context context, boolean autoInitialize, boolean allowParallelSyncs)
@@ -106,6 +149,10 @@ public abstract class AbstractSyncService extends Service
 			super(context, autoInitialize, allowParallelSyncs);
 		}
 
+		/**
+		 * {@inheritDoc}
+		 */
+		// Delegate to outer class
 		@Override
 		public void onPerformSync(Account account, Bundle extras, String authority, ContentProviderClient provider,
 				SyncResult result)
@@ -114,9 +161,6 @@ public abstract class AbstractSyncService extends Service
 		}
 	}
 	
-	protected AbstractSyncService()
-	{
-	}
 	/*
 	 * Instantiate the sync adapter object.
 	 */
@@ -130,8 +174,9 @@ public abstract class AbstractSyncService extends Service
 	}
 
 	/**
-	 * Return an object that allows the system to invoke the sync adapter.
+	 * Return an object that allows the system to invoke the sync adapter or authenticator.
 	 * 
+	 * @see android.app.Service#onBind(android.content.Intent)
 	 */
 	@Override
 	public IBinder onBind(Intent intent)
@@ -150,37 +195,22 @@ public abstract class AbstractSyncService extends Service
 	}
 
 	/**
-	 * Helper method to trigger an immediate sync ("refresh").
-	 * 
-	 * @param contentAuthority The content authority.
-	 * @param account The account.
-	 * 
-	 * <p>
-	 * This should only be used when we need to preempt the normal sync
-	 * schedule. Typically, this means the user has pressed the "refresh"
-	 * button.
-	 * 
-	 * Note that SYNC_EXTRAS_MANUAL will cause an immediate sync, without any
-	 * optimization to preserve battery life. If you know new data is available
-	 * (perhaps via a GCM notification), but the user is not actively waiting
-	 * for that data, you should omit this flag; this will give the OS
-	 * additional freedom in scheduling your sync request.
+	 * @see {@link android.content.AbstractThreadedSyncAdapter#onSyncCanceled()}
 	 */
-	public static void triggerRefreshNow(String contentAuthority,Account account)
+	protected void onSyncCanceled()
 	{
-		Log.d(TAG,"triggerRefreshNow");
-		Bundle b = new Bundle();
-		// Disable sync backoff and ignore sync preferences. In other
-		// words...perform sync NOW!
-		b.putBoolean(ContentResolver.SYNC_EXTRAS_MANUAL, true);
-		b.putBoolean(ContentResolver.SYNC_EXTRAS_EXPEDITED, true);
-		ContentResolver.requestSync(
-			account, // Sync account
-			contentAuthority, // Content authority
-			b); // Extras
 	}
 
-
+	/**
+	 * @see {@link android.content.AbstractThreadedSyncAdapter#onSyncCanceled(Thread)}
+	 */
+	protected void onSyncCanceled(Thread thread)
+	{
+	}
+	
+	/**
+	 * @see {@link android.content.AbstractThreadedSyncAdapter#onPerformSync(Account, Bundle, String, ContentProviderClient, SyncResult)}
+	 */
 	abstract protected void onPerformSync(Context context,Account account, Bundle extras, String authority, ContentProviderClient provider,
 			SyncResult result);
 	
